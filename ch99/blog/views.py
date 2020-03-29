@@ -10,6 +10,11 @@ from django.shortcuts import render
 from blog.models import Post
 from blog.forms import PostSearchForm
 
+from django.views.generic import CreateView, UpdateView, DeleteView
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.urls import reverse_lazy
+from mysite.views import OwnerOnlyMixin
+
 # Create your views here.
 
 #-- ListView
@@ -85,3 +90,31 @@ class SearchFormView(FormView):
         context['object_list'] = post_list
 
         return render(self.request, self.template_name, context)
+
+class PostCreateView(LoginRequiredMixin, CreateView):
+    model = Post
+    fields = ['title', 'slug', 'description', 'content', 'tags']
+    initial = {'slug': 'auto-filling-do-not-input'}
+    # 아래와 같이 fields를 slug없이 정의하면 폼에 나타나지 않는다. 
+    # Post model의 save 함수에 의해 테이블 레코드에 자동으로 채워진다.
+    # fields = ['title', 'description', 'content', 'tags']
+    success_url = reverse_lazy('blog:index')
+
+    def form_valid(self, form):
+        form.instance.owner = self.request.user
+        return super().form_valid(form)
+
+class PostChangeLV(LoginRequiredMixin, ListView):
+    template_name = 'blog/post_change_list.html'
+
+    def get_queryset(self):
+        return Post.objects.filter(owner=self.request.user)
+
+class PostUpdateView(OwnerOnlyMixin, UpdateView):
+    model = Post
+    fields = ['title', 'slug', 'description', 'content', 'tags']
+    success_url = reverse_lazy('blog:index')
+
+class PostDeleteView(OwnerOnlyMixin, DeleteView):
+    model = Post
+    success_url = reverse_lazy('blog:index')
